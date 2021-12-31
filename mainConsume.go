@@ -10,5 +10,5 @@ func main() {
 		"ronQueues")
 	defer rabbitmq.Destory()
 
-	rabbitmq.ConsumeSiple()
+	rabbitmq.ConsumeSimple()
 }
