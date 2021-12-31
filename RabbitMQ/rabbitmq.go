@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-const MQURL = "amqp://ron:ron@http://localhost:15672/ronMQ" //ronMQ 是virtual host名字
+const MQURL = "amqp://ron:ron@127.0.0.1:5672/ronMQ" //ronMQ 是virtual host名字
 
 type RabbitMQ struct {
 	conn     *amqp.Connection
@@ -33,6 +33,8 @@ func NewRabbitMQ(queue, exchange, key string) *RabbitMQ {
 func (r *RabbitMQ) Destory() {
 	r.channel.Close()
 	r.conn.Close()
+	log.Printf("channel, conn断开")
+
 }
 
 //错误处理
@@ -50,10 +52,28 @@ func NewRabbitMQSimple(queue string) *RabbitMQ {
 
 //2.生产代码
 func (r *RabbitMQ) PublishSimple(message string) {
-	//1.申请队列，如果不存在会自动创建
-	_, err := r.channel.QueueDeclare(
+	r.queueDeclare()
+
+	//发送消息到队列中
+	err := r.channel.Publish(
+		r.Exchange,
 		r.Queue,
 		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(message),
+		})
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+//申请队列，如果不存在会自动创建
+func (r *RabbitMQ) queueDeclare() {
+	_, err := r.channel.QueueDeclare(
+		r.Queue,
+		true,
 		false,
 		false,
 		false,
@@ -62,15 +82,32 @@ func (r *RabbitMQ) PublishSimple(message string) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	//2.发送消息到队列中
-	r.channel.Publish(
-		r.Exchange,
-		r.Queue,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType:"text/plain",
-			Body:[]byte(message),
-		})
+}
 
+func (r *RabbitMQ) ConsumeSiple() {
+	r.queueDeclare()
+
+	//接受消息
+	msgsChan, err := r.channel.Consume(
+		r.Queue,
+		"", //不区分消费者
+		true,
+		false, //没有排他性
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	forever := make(chan bool)
+	go func() {
+		for d := range msgsChan {
+			log.Printf("Received a message: %s", d.Body)
+		}
+	}()
+	log.Printf("[*] Waiting for messages, CTRL+C to exit.")
+
+	<-forever
 }
