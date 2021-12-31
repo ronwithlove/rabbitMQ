@@ -43,8 +43,34 @@ func (r *RabbitMQ) failOnErr(err error, message string) {
 	}
 }
 
-//创建simple模式下RabbitMQ实例
+//1.创建simple模式下RabbitMQ实例
 func NewRabbitMQSimple(queue string) *RabbitMQ {
 	return NewRabbitMQ(queue, ",", "") //exchange不写是使用默认的，key不写是没有
+}
+
+//2.生产代码
+func (r *RabbitMQ) PublishSimple(message string) {
+	//1.申请队列，如果不存在会自动创建
+	_, err := r.channel.QueueDeclare(
+		r.Queue,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		fmt.Println(err)
+	}
+	//2.发送消息到队列中
+	r.channel.Publish(
+		r.Exchange,
+		r.Queue,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:"text/plain",
+			Body:[]byte(message),
+		})
 
 }
